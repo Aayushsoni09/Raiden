@@ -2,7 +2,7 @@
 
 > A voice-driven, local-first DevOps agent that investigates and remediates your cloud incidents — across AWS and GCP — without you touching a console.
 
-You say *"the vook-api is down"*. Raiden figures out what broke, tells you why, and asks before it fixes anything.
+You say what's broken. Raiden figures out what went wrong, tells you why, and asks before it fixes anything.
 
 ---
 
@@ -26,7 +26,7 @@ Speech-to-Text (local Whisper or cloud STT)
     │
     ▼
 Claude Code session (your terminal, persistent)
-    ├── reads catalog.yaml  →  resolves "VOOK" to account + region + services
+    ├── reads catalog.yaml  →  resolves project name to account + region + services
     ├── runs aws / gcloud / kubectl CLI commands (already authed as you)
     ├── reads logs, metrics, recent deployments, IAM changes
     └── produces ranked hypotheses with supporting + disconfirming evidence
@@ -48,28 +48,27 @@ Verifies the fix → tells you outcome → logs everything locally
 
 ### The catalog is the real product
 
-Before Raiden can investigate anything, it needs to know what "VOOK" means in terms of actual cloud resources. That mapping lives in `catalog/vook.yaml`:
+Before Raiden can investigate anything, it needs to know what "my-app" means in terms of actual cloud resources. That mapping lives in `catalog/my-app.yaml`:
 
 ```yaml
-id: vook
-aliases: [VOOK, buybox, "buy box retail"]
+id: my-app
+aliases: [my-app, "my app", myapp]
 clouds:
   - provider: aws
     account_id: "123456789012"
     regions: [ap-south-1]
     services:
-      - { type: ecs, cluster: prod-cluster, service: vook-api-service }
-      - { type: amplify, app: admin-staging, domain: admin-staging.vook.in }
+      - { type: ecs, cluster: prod-cluster, service: my-app-service }
       - { type: dynamodb }
 repos:
-  - { url: github.com/org/vook-api, deploy: github-actions }
-domains: [vook.in, admin-staging.vook.in]
+  - { url: github.com/org/my-app-api, deploy: github-actions }
+domains: [my-app.com, api.my-app.com]
 runbooks_allowed: [restart_ecs_service, rollback_ecs_task_def]
 runbooks_forbidden: [any_delete, iam_modify]
 llm_egress_approved: false   # flip to true only after client contract sign-off
 ```
 
-No LLM is involved in tenant resolution. "VOOK" maps to a project by exact/fuzzy match against aliases. If it's ambiguous, Raiden asks before doing anything.
+No LLM is involved in tenant resolution. Project names map by exact/fuzzy match against aliases. If it's ambiguous, Raiden asks before doing anything.
 
 ---
 
@@ -119,7 +118,7 @@ raiden/
 │   ├── example-project.yaml   # Safe synthetic example
 │   └── .gitignore             # ← catalog/*.yaml ignored by default; you add yours locally
 ├── src/
-│   ├── resolver/              # "VOOK" → catalog entry (no LLM)
+│   ├── resolver/              # project name → catalog entry (no LLM)
 │   ├── investigator/          # Agent loop, subagent definitions, hypothesis ranking
 │   ├── executor/              # Runbook runner — accepts structured intents only, not free-form commands
 │   ├── voice/
@@ -209,7 +208,7 @@ This checks that the resources listed actually exist in the cloud accounts. Fix 
 ```bash
 claude   # start a session
 # then type:
-> the vook-api is down
+> the api service is down
 ```
 
 Get comfortable with the text loop before adding voice. The voice layer is just STT → text and text → TTS on top of the same thing.
@@ -221,7 +220,7 @@ Get comfortable with the text loop before adding voice. The voice layer is just 
 python src/voice/stt/transcribe.py --mic
 
 # test TTS
-echo "investigating vook" | python src/voice/tts/speak.py
+echo "investigating the api service" | python src/voice/tts/speak.py
 
 # full voice loop
 python src/voice/loop.py
