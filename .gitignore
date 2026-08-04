@@ -1,0 +1,21 @@
+# User-specific catalog files — never commit these
+catalog/*.yaml
+!catalog/example-project.yaml   # only the example is allowed
+!catalog/_schema.yaml            # and the schema
+
+# Local env and credentials
+.env
+.env.*
+*.pem
+*.key
+credentials/
+
+# Claude Code local config (has your MCP paths etc.)
+.claude/settings.local.json
+
+# Audit logs — your incident history, not for the repo
+audit/
+
+# Any local SQLite evidence stores
+*.db
+*.sqlite
