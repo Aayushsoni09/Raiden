@@ -2,6 +2,8 @@ name: ci
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   test:
@@ -13,5 +15,11 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Unit tests
-        run: pytest tests/unit/
+      - name: Lint runbooks
+        run: python scripts/lint_runbooks.py runbooks/
+      - name: Validate catalog schema
+        run: python scripts/validate_catalog.py catalog/_schema.yaml catalog/example-project.yaml catalog/example-project-aws.yaml
+      - name: Unit and integration tests
+        run: pytest tests/ -v
+      - name: Security scan
+        run: bandit -r src/ -ll

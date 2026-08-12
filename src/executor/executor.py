@@ -7,11 +7,14 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from jsonschema import ValidationError as SchemaValidationError
+from jsonschema import validate as validate_schema
 
 from scripts._shell import resolve
 from src.audit import AuditLog
 
 FORBIDDEN_RUNBOOKS = {"any_delete", "iam_modify"}
+FORBIDDEN_COMMAND_SUBSTRINGS = ["terraform apply", "terraform destroy"]
 
 
 class RunbookNotAllowedError(Exception):
@@ -39,11 +42,21 @@ class RunbookExecutor:
             )
 
         runbook = self._load_runbook(runbook_id)
-        missing = [p["name"] for p in runbook["params"] if p["required"] and p["name"] not in params]
-        if missing:
-            raise ValueError(f"Missing required params: {missing}")
+
+        try:
+            validate_schema(instance=params, schema=runbook["params"])
+        except SchemaValidationError as e:
+            raise ValueError(f"Invalid params for '{runbook_id}': {e.message}") from e
 
         command = [part.format(**params) for part in runbook["command"]]
+
+        rendered = " ".join(command)
+        for forbidden in FORBIDDEN_COMMAND_SUBSTRINGS:
+            if forbidden in rendered:
+                raise RunbookNotAllowedError(
+                    f"'{runbook_id}' command contains forbidden operation '{forbidden}'"
+                )
+
         self.audit.record(
             "runbook_proposed",
             runbook_id=runbook_id,

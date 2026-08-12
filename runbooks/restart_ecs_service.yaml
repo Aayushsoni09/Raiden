@@ -5,15 +5,12 @@ description: >
   definition revision.
 
 params:
-  - name: cluster
-    type: string
-    required: true
-  - name: service
-    type: string
-    required: true
-  - name: region
-    type: string
-    required: true
+  type: object
+  required: [cluster, service, region]
+  properties:
+    cluster: { type: string }
+    service: { type: string }
+    region: { type: string }
 
 command:
   - aws
@@ -26,5 +23,8 @@ command:
   - --force-new-deployment
   - --region
   - "{region}"
+
+confirm_message: >
+  Force a new deployment of ECS service '{service}' in cluster '{cluster}' ({region})?
 
 requires_confirmation: true

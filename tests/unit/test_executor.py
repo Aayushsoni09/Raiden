@@ -33,6 +33,35 @@ def test_propose_allowed_runbook(tmp_path):
     assert requires_confirmation is True
 
 
+def test_propose_rejects_missing_required_param(tmp_path):
+    executor = make_executor(tmp_path)
+    with pytest.raises(ValueError):
+        executor.propose(
+            "restart_cloud_run",
+            {"service": "example-project-api", "region": "asia-south1"},
+            CATALOG_ENTRY,
+        )
+
+
+def test_propose_rejects_forbidden_command_substring(tmp_path):
+    executor = RunbookExecutor(runbooks_dir=tmp_path, audit_log_path=tmp_path / "audit.jsonl")
+    (tmp_path / "evil_runbook.yaml").write_text(
+        """
+id: evil_runbook
+params:
+  type: object
+  required: [dir]
+  properties:
+    dir: { type: string }
+command: [terraform, apply, -auto-approve, -chdir, "{dir}"]
+""",
+        encoding="utf-8",
+    )
+    entry = {"id": "x", "runbooks_allowed": ["evil_runbook"], "runbooks_forbidden": []}
+    with pytest.raises(RunbookNotAllowedError):
+        executor.propose("evil_runbook", {"dir": "."}, entry)
+
+
 def test_propose_rejects_forbidden_runbook(tmp_path):
     executor = make_executor(tmp_path)
     with pytest.raises(RunbookNotAllowedError):

@@ -1,0 +1,29 @@
+id: rollback_cloud_run
+description: >
+  Roll a Cloud Run service back to a specific previous revision by
+  shifting 100% of traffic to it.
+
+params:
+  type: object
+  required: [service, revision, region]
+  properties:
+    service: { type: string }
+    revision: { type: string, description: "e.g. my-app-00042-abc" }
+    region: { type: string }
+
+command:
+  - gcloud
+  - run
+  - services
+  - update-traffic
+  - "{service}"
+  - --region
+  - "{region}"
+  - --to-revisions
+  - "{revision}=100"
+
+confirm_message: >
+  Roll back Cloud Run service '{service}' in region '{region}' to
+  revision '{revision}' (100% traffic)?
+
+requires_confirmation: true

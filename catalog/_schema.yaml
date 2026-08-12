@@ -1,32 +1,89 @@
-# Schema and field docs for catalog/*.yaml entries.
-# Supported providers: gcp (cloud_run), aws (ecs). k8s reserved for later phases.
+# catalog/_schema.yaml
+#
+# This file documents (and is validated against by scripts/validate_catalog.py)
+# the shape every catalog/*.yaml entry must follow. It is NOT consumed at
+# runtime directly — it's a JSON-Schema-style reference + human docs.
+#
+# One YAML file per project in catalog/. Never commit real account IDs,
+# domains, or repo URLs — catalog/*.yaml (except this file and the
+# example-project*.yaml files) is gitignored by default.
 
-id: string                       # unique project id, matches filename
-aliases: [string]                # names Raiden should fuzzy-match against (see src/resolver)
+type: object
+required: [id, aliases, clouds]
+properties:
+  id:
+    type: string
+    description: Canonical project id. Must match the filename (without .yaml).
 
-clouds:
-  - provider: gcp                # "gcp" or "aws"
-    project_id: string           # GCP project id (gcp only)
-    regions: [string]            # e.g. [asia-south1] (gcp) or [ap-south-1] (aws)
-    services:
-      - type: cloud_run          # gcp: cloud_run
-        service: string          # Cloud Run service name
+  aliases:
+    type: array
+    items: { type: string }
+    description: >
+      Names/phrases the resolver will fuzzy-match against when you say/type
+      a project name. Include natural speech variants ("my app", "myapp").
 
-  - provider: aws
-    account_id: string           # AWS account id (aws only)
-    regions: [string]            # e.g. [ap-south-1]
-    services:
-      - type: ecs                # aws: ecs
-        cluster: string          # ECS cluster name
-        service: string          # ECS service name
+  clouds:
+    type: array
+    description: One entry per cloud provider this project lives in.
+    items:
+      type: object
+      required: [provider, regions, services]
+      properties:
+        provider:
+          type: string
+          enum: [aws, gcp]
+        project_id:
+          type: string
+          description: GCP project id (gcp entries).
+        account_id:
+          type: string
+          description: AWS account id (aws entries).
+        regions:
+          type: array
+          items: { type: string }
+        services:
+          type: array
+          description: Resources the investigator is allowed to read.
+          items:
+            type: object
+            required: [type]
+            properties:
+              type:
+                type: string
+                enum: [ecs, cloud_run, dynamodb, rds, lambda, gke, gce, s3, gcs]
+              cluster: { type: string }
+              service: { type: string }
 
-repos:
-  - url: string                  # e.g. github.com/org/repo
-    deploy: string                # e.g. github-actions
+  repos:
+    type: array
+    items:
+      type: object
+      properties:
+        url: { type: string }
+        deploy:
+          type: string
+          enum: [github-actions, gitlab-ci, manual]
 
-domains: [string]
+  domains:
+    type: array
+    items: { type: string }
+    description: Used for DNS/HTTP health-check tools.
 
-runbooks_allowed: [string]       # runbook ids the executor may run for this project
-runbooks_forbidden: [string]     # always includes any_delete, iam_modify implicitly
+  runbooks_allowed:
+    type: array
+    items: { type: string }
+    description: Names of files (without .yaml) under runbooks/ the executor may run for this project.
 
-llm_egress_approved: false        # must be explicitly flipped to true; defaults false on every entry
+  runbooks_forbidden:
+    type: array
+    items: { type: string }
+    description: Explicit deny-list. Checked before runbooks_allowed. any_delete and iam_modify are always forbidden regardless of this list.
+
+  llm_egress_approved:
+    type: boolean
+    default: false
+    description: >
+      MUST default to false. Only set true after the client has
+      contractually agreed their logs/telemetry may be sent to the
+      configured LLM (even a local one — this is about data handling
+      policy, not just network egress).

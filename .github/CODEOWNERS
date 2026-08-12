@@ -1,0 +1,7 @@
+# Everything requires review from the core maintainer
+*                       @Aayushsoni09
+
+# Runbooks and executor paths need extra scrutiny
+/runbooks/              @Aayushsoni09
+/src/executor/          @Aayushsoni09
+/catalog/_schema.yaml   @Aayushsoni09
