@@ -1,0 +1,26 @@
+name: restart_ecs_service
+description: >
+  Force a new deployment of an ECS service, which triggers ECS to restart
+  its tasks. Safe way to "restart" an ECS-backed service.
+params:
+  type: object
+  required: [cluster, service, region]
+  properties:
+    cluster: { type: string }
+    service: { type: string }
+    region: { type: string }
+command:
+  - aws
+  - ecs
+  - update-service
+  - --cluster
+  - "{cluster}"
+  - --service
+  - "{service}"
+  - --force-new-deployment
+  - --region
+  - "{region}"
+confirm_message: >
+  Restart ECS service '{service}' in cluster '{cluster}' ({region}) by
+  forcing a new deployment?
+

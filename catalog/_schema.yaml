@@ -1,0 +1,87 @@
+# catalog/_schema.yaml
+#
+# This file documents (and is validated against by scripts/validate_catalog.py)
+# the shape every catalog/*.yaml entry must follow. It is NOT consumed at
+# runtime directly — it's a JSON-Schema-style reference + human docs.
+#
+# One YAML file per project in catalog/. Never commit real account IDs,
+# domains, or repo URLs — catalog/*.yaml (except this file and
+# example-project.yaml) is gitignored by default.
+
+type: object
+required: [id, aliases, clouds]
+properties:
+  id:
+    type: string
+    description: Canonical project id. Must match the filename (without .yaml).
+
+  aliases:
+    type: array
+    items: { type: string }
+    description: >
+      Names/phrases the resolver will fuzzy-match against when you say/type
+      a project name. Include natural speech variants ("my app", "myapp").
+
+  clouds:
+    type: array
+    description: One entry per cloud provider this project lives in.
+    items:
+      type: object
+      required: [provider, account_id, regions, services]
+      properties:
+        provider:
+          type: string
+          enum: [aws, gcp]
+        account_id:
+          type: string
+          description: AWS account id or GCP project id.
+        regions:
+          type: array
+          items: { type: string }
+        services:
+          type: array
+          description: Resources the investigator is allowed to read.
+          items:
+            type: object
+            required: [type]
+            properties:
+              type:
+                type: string
+                enum: [ecs, cloud_run, dynamodb, rds, lambda, gke, gce, s3, gcs]
+              cluster: { type: string }
+              service: { type: string }
+
+  repos:
+    type: array
+    items:
+      type: object
+      properties:
+        url: { type: string }
+        deploy:
+          type: string
+          enum: [github-actions, gitlab-ci, manual]
+
+  domains:
+    type: array
+    items: { type: string }
+    description: Used for DNS/HTTP health-check tools.
+
+  runbooks_allowed:
+    type: array
+    items: { type: string }
+    description: Names of files (without .yaml) under runbooks/ the executor may run for this project.
+
+  runbooks_forbidden:
+    type: array
+    items: { type: string }
+    description: Explicit deny-list. Checked before runbooks_allowed. any_delete and iam_modify are always forbidden regardless of this list.
+
+  llm_egress_approved:
+    type: boolean
+    default: false
+    description: >
+      MUST default to false. Only set true after the client has
+      contractually agreed their logs/telemetry may be sent to the
+      configured LLM (even a local one — this is about data handling
+      policy, not just network egress).
+

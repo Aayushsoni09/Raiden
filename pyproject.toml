@@ -1,0 +1,40 @@
+[project]
+name = "raiden"
+version = "0.1.0"
+description = "A voice-driven, local-first DevOps agent for AWS/GCP incident investigation and remediation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "pyyaml>=6.0",
+    "rapidfuzz>=3.6",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-ollama>=0.2.0",
+    "click>=8.1",
+    "rich>=13.7",
+    "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+voice = [
+    "openai-whisper>=20231117",
+    "piper-tts>=1.2.0",
+    "sounddevice>=0.4.6",
+]
+dev = [
+    "pytest>=8.0",
+    "bandit>=1.7",
+]
+
+[project.scripts]
+raiden = "src.main:cli"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+

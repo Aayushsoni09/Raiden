@@ -1,0 +1,27 @@
+name: rollback_ecs_task_def
+description: >
+  Roll an ECS service back to a specific previous task definition revision.
+params:
+  type: object
+  required: [cluster, service, task_definition, region]
+  properties:
+    cluster: { type: string }
+    service: { type: string }
+    task_definition: { type: string, description: "e.g. my-app:41" }
+    region: { type: string }
+command:
+  - aws
+  - ecs
+  - update-service
+  - --cluster
+  - "{cluster}"
+  - --service
+  - "{service}"
+  - --task-definition
+  - "{task_definition}"
+  - --region
+  - "{region}"
+confirm_message: >
+  Roll back ECS service '{service}' in cluster '{cluster}' ({region}) to
+  task definition '{task_definition}'?
+

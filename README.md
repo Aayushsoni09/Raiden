@@ -8,7 +8,7 @@ You say what's broken. Raiden figures out what went wrong, tells you why, and as
 
 ## What this is
 
-Raiden is a persistent Claude Code session running on your local machine, wired up to your existing AWS/GCP CLIs and a YAML catalog of your projects. It listens, investigates, proposes, and acts — only on your say-so.
+Raiden is a local Python agent running on your machine, wired up to your existing AWS/GCP CLIs, a YAML catalog of your projects, and a **local, open-source LLM served by Ollama** (no subscription, no API key, no data leaving your machine). It listens, investigates, proposes, and acts — only on your say-so.
 
 No dashboards. No extra SaaS subscriptions. No Slack bots. Just your terminal and your voice.
 
@@ -22,28 +22,28 @@ No dashboards. No extra SaaS subscriptions. No Slack bots. Just your terminal an
 You speak
     │
     ▼
-Speech-to-Text (local Whisper or cloud STT)
+Speech-to-Text (local Whisper)
     │
     ▼
-Claude Code session (your terminal, persistent)
-    ├── reads catalog.yaml  →  resolves project name to account + region + services
-    ├── runs aws / gcloud / kubectl CLI commands (already authed as you)
-    ├── reads logs, metrics, recent deployments, IAM changes
-    └── produces ranked hypotheses with supporting + disconfirming evidence
+Investigator agent (src/investigator, LangGraph + local Ollama model)
+    ├── reads catalog/*.yaml  →  resolves project name to account + region + services
+    ├── runs aws / gcloud / kubectl / gh CLI commands (already authed as you, read-only)
+    ├── reads logs, metrics, recent deployments, CI runs
+    └── produces ranked hypotheses with supporting evidence
     │
     ▼
-Text-to-Speech (Piper TTS local, or ElevenLabs/Google TTS)
+Text-to-Speech (Piper TTS, local)
     │  "Looks like the ECS task failed health checks after the 14:32 deploy.
     │   Secret Manager permission was removed. Want me to redeploy the
     │   previous revision?"
     ▼
-You say "yes"
+You say/type "yes"
     │
     ▼
-Raiden runs the approved CLI command
+Executor (src/executor) runs the approved runbook — structured intent only
     │
     ▼
-Verifies the fix → tells you outcome → logs everything locally
+Verifies the fix → tells you outcome → logs everything locally (src/audit)
 ```
 
 ### The catalog is the real product
@@ -68,7 +68,7 @@ runbooks_forbidden: [any_delete, iam_modify]
 llm_egress_approved: false   # flip to true only after client contract sign-off
 ```
 
-No LLM is involved in tenant resolution. Project names map by exact/fuzzy match against aliases. If it's ambiguous, Raiden asks before doing anything.
+No LLM is involved in tenant resolution (`src/resolver`). Project names map by exact/fuzzy match against aliases. If it's ambiguous, Raiden asks before doing anything.
 
 ---
 
@@ -113,40 +113,37 @@ The rule of thumb: if getting it wrong could take down a client's production sys
 raiden/
 ├── README.md
 ├── LICENSE                    # Apache-2.0
+├── pyproject.toml / requirements.txt
 ├── catalog/                   # One YAML per project. Never commit real account IDs.
 │   ├── _schema.yaml           # Validated schema + field docs
-│   ├── example-project.yaml   # Safe synthetic example
-│   └── .gitignore             # ← catalog/*.yaml ignored by default; you add yours locally
+│   └── example-project.yaml   # Safe synthetic example (catalog/*.yaml is gitignored otherwise)
 ├── src/
-│   ├── resolver/              # project name → catalog entry (no LLM)
-│   ├── investigator/          # Agent loop, subagent definitions, hypothesis ranking
-│   ├── executor/              # Runbook runner — accepts structured intents only, not free-form commands
+│   ├── main.py                 # CLI entrypoint: `raiden investigate|run|catalog`
+│   ├── resolver/               # project name → catalog entry (no LLM)
+│   ├── investigator/            # LangGraph agent loop (local Ollama model) + read-only CLI tools
+│   ├── executor/                # Runbook runner — accepts structured intents only, not free-form commands
 │   ├── voice/
-│   │   ├── stt/               # Whisper wrapper
-│   │   └── tts/               # Piper wrapper
-│   └── audit/                 # Append-only local log
-├── runbooks/                  # YAML-defined, parameterised. Executor runs these, nothing else.
+│   │   ├── stt/                 # Whisper wrapper
+│   │   └── tts/                 # Piper wrapper
+│   └── audit/                   # Append-only local JSONL log
+├── runbooks/                   # YAML-defined, parameterised. Executor runs these, nothing else.
 │   ├── restart_ecs_service.yaml
 │   ├── rollback_ecs_task_def.yaml
 │   ├── restart_cloud_run.yaml
 │   └── rollback_cloud_run.yaml
-├── prompts/                   # System prompts, few-shot examples
 ├── scripts/
-│   ├── setup.sh               # One-shot local setup
-│   └── catalog-drift.sh       # Nightly: verify catalog resources actually exist
-├── tests/
-│   ├── unit/
-│   ├── integration/           # Dry-run against fake resources
-│   └── fixtures/              # Sample CLI outputs for offline testing
+│   ├── setup.sh                 # One-shot local setup — installs Ollama model, Python deps
+│   ├── catalog-drift.sh         # Verify catalog resources actually exist
+│   ├── validate_catalog.py      # CI: catalog schema validation
+│   └── lint_runbooks.py         # CI: runbook safety linting
+├── tests/unit/
 ├── docs/
-│   ├── THREAT_MODEL.md        # Read before contributing
+│   ├── THREAT_MODEL.md          # Read before contributing
 │   ├── CONTRIBUTING.md
 │   ├── SECURITY.md
 │   └── ADR/                   # Architecture decision records
 └── .github/
-    ├── workflows/
-    │   ├── ci.yml             # Lint, test, catalog validation on every PR
-    │   └── drift-check.yml    # Nightly catalog drift
+    ├── workflows/{ci.yml, drift-check.yml}
     └── CODEOWNERS
 ```
 
@@ -159,7 +156,7 @@ raiden/
 Make sure these are installed and working before anything else:
 
 ```bash
-# Check your CLIs are authed
+# Check your CLIs are authed (only needed for the cloud providers you use)
 aws sts get-caller-identity
 gcloud auth application-default print-access-token
 kubectl cluster-info   # if you use k8s
@@ -184,36 +181,80 @@ cd raiden
 ./scripts/setup.sh
 ```
 
-### 2. Create your first catalog entry
+`setup.sh` creates a `.venv`, installs Python dependencies, and — if `ollama` is installed — pulls the default model automatically. If it isn't installed yet, do it manually first:
+
+### 2. Install Ollama and download the local model
+
+This is the step that replaces any paid LLM API — **no API key required, ever**, for the default local setup.
+
+```bash
+# macOS
+brew install ollama
+
+# Linux / other — see https://ollama.com/download
+
+# Start the Ollama background server (macOS via brew services keeps it
+# running across reboots/logins; alternatively run `ollama serve` in a
+# terminal you keep open)
+brew services start ollama
+
+# Confirm the server is up
+curl -s http://localhost:11434/api/version
+
+# Download the default model (~4.7GB, one-time download, then fully offline)
+ollama pull llama3.1
+
+# Confirm it's there
+ollama list
+```
+
+Want a smaller/faster or larger/better model instead? Any Ollama model works — just pull it and point Raiden at it:
+
+```bash
+ollama pull qwen2.5:7b        # smaller/faster alternative
+export RAIDEN_MODEL=qwen2.5:7b
+```
+
+`RAIDEN_MODEL` (default `llama3.1`) and `RAIDEN_OLLAMA_URL` (default `http://localhost:11434`) are read by `src/investigator/agent.py` — no code changes needed to switch models.
+
+### 3. Install voice extras (optional, for later)
+
+```bash
+pip install -e ".[voice]"    # openai-whisper + piper-tts + sounddevice
+```
+
+### 4. Create your first catalog entry
 
 Copy the example and fill in your project:
 
 ```bash
 cp catalog/example-project.yaml catalog/myproject.yaml
-# Edit catalog/myproject.yaml — see _schema.yaml for every field explained
+# Edit catalog/myproject.yaml — see catalog/_schema.yaml for every field explained
 ```
 
-Don't commit real account IDs to the repo. `catalog/*.yaml` is gitignored by default. Keep your real catalogs locally or in a private fork.
+Don't commit real account IDs to the repo. `catalog/*.yaml` is gitignored by default (except `_schema.yaml` and `example-project.yaml`). Keep your real catalogs locally or in a private fork.
 
-### 3. Validate the catalog
+### 5. Validate the catalog
 
 ```bash
+source .venv/bin/activate
+python scripts/validate_catalog.py catalog/_schema.yaml catalog/myproject.yaml
 ./scripts/catalog-drift.sh catalog/myproject.yaml
 ```
 
 This checks that the resources listed actually exist in the cloud accounts. Fix any drift before relying on it during an incident.
 
-### 4. Run a text-mode investigation (no voice yet)
+### 6. Run a text-mode investigation (no voice yet)
 
 ```bash
-claude   # start a session
-# then type:
-> the api service is down
+source .venv/bin/activate
+python -m src.main catalog list
+python -m src.main investigate "the api service is down" --project myproject
 ```
 
 Get comfortable with the text loop before adding voice. The voice layer is just STT → text and text → TTS on top of the same thing.
 
-### 5. Add voice
+### 7. Add voice
 
 ```bash
 # test STT
@@ -317,7 +358,7 @@ jobs:
       - name: Unit tests
         run: pytest tests/unit/
       - name: Security scan
-        run: pip install bandit && bandit -r src/
+        run: pip install bandit && bandit -r src/ -x src/voice -ll
 ```
 
 Add the job name `test` (or whatever you name it) as a required status check in the branch protection settings.

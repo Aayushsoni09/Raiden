@@ -1,0 +1,10 @@
+requests>=2.31
+pyyaml>=6.0
+rapidfuzz>=3.6
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-ollama>=0.2.0
+click>=8.1
+rich>=13.7
+jsonschema>=4.21
+pytest>=8.0

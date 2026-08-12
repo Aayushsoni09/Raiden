@@ -1,0 +1,16 @@
+name: drift-check
+on:
+  schedule:
+    - cron: "0 6 * * *"  # nightly at 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up AWS/gcloud CLIs
+        run: echo "Configure your cloud auth here (OIDC role assumption recommended, no long-lived keys)."
+      - name: Run catalog drift check
+        run: ./scripts/catalog-drift.sh
+

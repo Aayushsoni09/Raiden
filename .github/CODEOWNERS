@@ -1,0 +1,8 @@
+# Everything requires review from the core maintainer
+*                       @your-github-username
+
+# Runbooks and executor paths need extra scrutiny
+/runbooks/              @your-github-username
+/src/executor/          @your-github-username
+/catalog/_schema.yaml   @your-github-username
+

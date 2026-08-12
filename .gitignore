@@ -1,7 +1,12 @@
 # User-specific catalog files — never commit these
 catalog/*.yaml
-!catalog/example-project.yaml   # only the example is allowed
-!catalog/_schema.yaml            # and the schema
+# Only the example and schema are allowed (inline comments aren't
+# supported by git, so these must stay on their own lines).
+!catalog/example-project.yaml
+!catalog/_schema.yaml
+
+# JetBrains IDE project files
+.idea/
 
 # Local env and credentials
 .env
@@ -19,3 +24,10 @@ audit/
 # Any local SQLite evidence stores
 *.db
 *.sqlite
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/

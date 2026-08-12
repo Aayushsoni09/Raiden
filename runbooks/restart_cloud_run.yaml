@@ -1,0 +1,24 @@
+name: restart_cloud_run
+description: >
+  Restart a Cloud Run service by redeploying its current revision with a
+  no-op traffic update, which forces new instances to start.
+params:
+  type: object
+  required: [service, region]
+  properties:
+    service: { type: string }
+    region: { type: string }
+command:
+  - gcloud
+  - run
+  - services
+  - update
+  - "{service}"
+  - --region
+  - "{region}"
+  - --no-traffic
+  - --tag
+  - restart
+confirm_message: >
+  Restart Cloud Run service '{service}' in region '{region}'?
+

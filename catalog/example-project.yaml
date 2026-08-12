@@ -1,0 +1,27 @@
+# catalog/example-project.yaml
+#
+# Safe, synthetic example. Copy this to create your own:
+#   cp catalog/example-project.yaml catalog/myproject.yaml
+# Then edit the copy — it will be gitignored automatically.
+
+id: example-project
+aliases: [example-project, "example project", exampleapp]
+
+clouds:
+  - provider: aws
+    account_id: "000000000000"
+    regions: [us-east-1]
+    services:
+      - { type: ecs, cluster: example-cluster, service: example-service }
+      - { type: dynamodb }
+
+repos:
+  - { url: github.com/example-org/example-project, deploy: github-actions }
+
+domains: [example.invalid, api.example.invalid]
+
+runbooks_allowed: [restart_ecs_service, rollback_ecs_task_def]
+runbooks_forbidden: [any_delete, iam_modify]
+
+llm_egress_approved: false
+
