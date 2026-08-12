@@ -223,23 +223,29 @@ def rank_hypotheses(state: InvestigatorState, model=DEFAULT_MODEL) -> Investigat
     return {**state, "hypotheses": response.content}
 
 
-def build_graph():
+def build_graph(model=DEFAULT_MODEL):
     graph = StateGraph(InvestigatorState)
     graph.add_node("gather_evidence", gather_evidence)
-    graph.add_node("rank_hypotheses", rank_hypotheses)
+    graph.add_node("rank_hypotheses", lambda state: rank_hypotheses(state, model=model))
     graph.set_entry_point("gather_evidence")
     graph.add_edge("gather_evidence", "rank_hypotheses")
     graph.add_edge("rank_hypotheses", END)
     return graph.compile()
 
 
-def investigate(report, catalog_entry, audit_log_path="audit/session.jsonl", evidence_db_path="audit/evidence.sqlite3"):
+def investigate(
+    report,
+    catalog_entry,
+    audit_log_path="audit/session.jsonl",
+    evidence_db_path="audit/evidence.sqlite3",
+    model=DEFAULT_MODEL,
+):
     audit = AuditLog(audit_log_path)
     store = EvidenceStore(evidence_db_path)
     investigation_id = store.start_investigation(catalog_entry["id"], report)
     audit.record("investigation_started", report=report, project=catalog_entry["id"])
 
-    app = build_graph()
+    app = build_graph(model=model)
     result = app.invoke({"report": report, "catalog_entry": catalog_entry})
 
     store.record_evidence(investigation_id, result["evidence"])
