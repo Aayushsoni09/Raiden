@@ -21,4 +21,4 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
       - name: Check catalog drift
-        run: ./scripts/catalog-drift.sh
+        run: bash scripts/catalog-drift.sh

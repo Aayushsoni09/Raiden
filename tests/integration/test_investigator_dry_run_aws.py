@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
+from src.evidence import EvidenceStore
 from src.investigator.graph import investigate
 
 CATALOG_ENTRY = yaml.safe_load(
@@ -60,6 +61,8 @@ FAKE_GH_RUNS = {
 
 def test_investigate_dry_run_aws(tmp_path):
     audit_path = tmp_path / "audit.jsonl"
+    evidence_db_path = tmp_path / "evidence.sqlite3"
+    captured_prompt = {}
 
     with patch("src.investigator.tools._run") as mock_run, patch(
         "src.investigator.graph.ChatOllama"
@@ -69,25 +72,39 @@ def test_investigate_dry_run_aws(tmp_path):
         ]
 
         mock_llm_instance = MagicMock()
-        mock_llm_instance.invoke.return_value = MagicMock(
-            content=(
-                "1. ECS task failed to start — unable to retrieve execution "
-                "role secrets/registry auth. Confidence: high."
+
+        def fake_invoke(prompt):
+            captured_prompt["text"] = prompt
+            return MagicMock(
+                content=(
+                    "1. ECS task failed to start — unable to retrieve execution "
+                    "role secrets/registry auth. Confidence: high."
+                )
             )
-        )
+
+        mock_llm_instance.invoke.side_effect = fake_invoke
         mock_chat.return_value = mock_llm_instance
 
         hypotheses = investigate(
             report="the api service is down",
             catalog_entry=CATALOG_ENTRY,
             audit_log_path=audit_path,
+            evidence_db_path=evidence_db_path,
         )
 
     assert "execution role" in hypotheses.lower() or "secrets" in hypotheses.lower()
     assert mock_run.call_count == 4
     mock_chat.assert_called_once()
 
+    # The FAILED rollout state should be surfaced as an explicit unhealthy
+    # signal in the prompt, not left for the model to infer from raw JSON.
+    assert '"healthy": false' in captured_prompt["text"].lower()
+
     audit_lines = audit_path.read_text(encoding="utf-8").strip().splitlines()
     events = [json.loads(line) for line in audit_lines]
     assert events[0]["type"] == "investigation_started"
     assert events[-1]["type"] == "investigation_completed"
+
+    store = EvidenceStore(evidence_db_path)
+    saved = store.get_investigation(1)
+    assert saved["project"] == "example-project-aws"

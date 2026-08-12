@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
+from src.evidence import EvidenceStore
 from src.investigator.graph import investigate
 
 CATALOG_ENTRY = yaml.safe_load(
@@ -53,6 +54,7 @@ FAKE_GH_RUNS = {
 
 def test_investigate_dry_run(tmp_path):
     audit_path = tmp_path / "audit.jsonl"
+    evidence_db_path = tmp_path / "evidence.sqlite3"
 
     with patch("src.investigator.tools._run") as mock_run, patch(
         "src.investigator.graph.ChatOllama"
@@ -72,6 +74,7 @@ def test_investigate_dry_run(tmp_path):
             report="the api service is down",
             catalog_entry=CATALOG_ENTRY,
             audit_log_path=audit_path,
+            evidence_db_path=evidence_db_path,
         )
 
     assert "permission denied" in hypotheses.lower()
@@ -83,3 +86,8 @@ def test_investigate_dry_run(tmp_path):
     assert events[0]["type"] == "investigation_started"
     assert events[-1]["type"] == "investigation_completed"
     assert "permission denied" in events[-1]["hypotheses"].lower()
+
+    store = EvidenceStore(evidence_db_path)
+    saved = store.get_investigation(1)
+    assert saved["project"] == "example-project"
+    assert "permission denied" in saved["hypotheses"].lower()
