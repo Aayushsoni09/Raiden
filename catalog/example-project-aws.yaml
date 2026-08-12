@@ -1,0 +1,19 @@
+id: example-project-aws
+aliases: [example-project-aws, "example project aws"]
+
+clouds:
+  - provider: aws
+    account_id: "123456789012"
+    regions: [ap-south-1]
+    services:
+      - { type: ecs, cluster: example-cluster, service: example-project-api }
+
+repos:
+  - { url: github.com/your-org/example-project-api, deploy: github-actions }
+
+domains: [example-project.dev, api.example-project.dev]
+
+runbooks_allowed: [restart_ecs_service]
+runbooks_forbidden: [any_delete, iam_modify]
+
+llm_egress_approved: false

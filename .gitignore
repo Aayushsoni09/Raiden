@@ -1,7 +1,9 @@
-# User-specific catalog files — never commit these
+# User-specific catalog files — never commit these.
+# Only the synthetic examples and the schema are allowed through.
 catalog/*.yaml
-!catalog/example-project.yaml   # only the example is allowed
-!catalog/_schema.yaml            # and the schema
+!catalog/example-project.yaml
+!catalog/example-project-aws.yaml
+!catalog/_schema.yaml
 
 # Local env and credentials
 .env
@@ -19,3 +21,10 @@ audit/
 # Any local SQLite evidence stores
 *.db
 *.sqlite
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

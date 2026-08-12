@@ -1,0 +1,30 @@
+id: restart_ecs_service
+description: >
+  Force a new ECS service deployment, cycling all running tasks to fresh
+  instances. Non-destructive: does not change desired count or task
+  definition revision.
+
+params:
+  - name: cluster
+    type: string
+    required: true
+  - name: service
+    type: string
+    required: true
+  - name: region
+    type: string
+    required: true
+
+command:
+  - aws
+  - ecs
+  - update-service
+  - --cluster
+  - "{cluster}"
+  - --service
+  - "{service}"
+  - --force-new-deployment
+  - --region
+  - "{region}"
+
+requires_confirmation: true

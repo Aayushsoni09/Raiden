@@ -1,0 +1,19 @@
+id: example-project
+aliases: [example-project, "example project", exampleproj]
+
+clouds:
+  - provider: gcp
+    project_id: "example-project-123456"
+    regions: [asia-south1]
+    services:
+      - { type: cloud_run, service: example-project-api }
+
+repos:
+  - { url: github.com/your-org/example-project-api, deploy: github-actions }
+
+domains: [example-project.dev, api.example-project.dev]
+
+runbooks_allowed: [restart_cloud_run]
+runbooks_forbidden: [any_delete, iam_modify]
+
+llm_egress_approved: false

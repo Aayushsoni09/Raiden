@@ -1,0 +1,32 @@
+# Schema and field docs for catalog/*.yaml entries.
+# Supported providers: gcp (cloud_run), aws (ecs). k8s reserved for later phases.
+
+id: string                       # unique project id, matches filename
+aliases: [string]                # names Raiden should fuzzy-match against (see src/resolver)
+
+clouds:
+  - provider: gcp                # "gcp" or "aws"
+    project_id: string           # GCP project id (gcp only)
+    regions: [string]            # e.g. [asia-south1] (gcp) or [ap-south-1] (aws)
+    services:
+      - type: cloud_run          # gcp: cloud_run
+        service: string          # Cloud Run service name
+
+  - provider: aws
+    account_id: string           # AWS account id (aws only)
+    regions: [string]            # e.g. [ap-south-1]
+    services:
+      - type: ecs                # aws: ecs
+        cluster: string          # ECS cluster name
+        service: string          # ECS service name
+
+repos:
+  - url: string                  # e.g. github.com/org/repo
+    deploy: string                # e.g. github-actions
+
+domains: [string]
+
+runbooks_allowed: [string]       # runbook ids the executor may run for this project
+runbooks_forbidden: [string]     # always includes any_delete, iam_modify implicitly
+
+llm_egress_approved: false        # must be explicitly flipped to true; defaults false on every entry

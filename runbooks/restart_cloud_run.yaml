@@ -1,0 +1,29 @@
+id: restart_cloud_run
+description: >
+  Force a new revision rollout of a Cloud Run service to restart its instances.
+  Non-destructive: does not change traffic split or delete any revision.
+
+params:
+  - name: service
+    type: string
+    required: true
+  - name: region
+    type: string
+    required: true
+  - name: project_id
+    type: string
+    required: true
+
+# Executor renders this template with validated params only. No free-form
+# shell input is ever accepted here.
+command:
+  - gcloud
+  - run
+  - services
+  - update
+  - "{service}"
+  - --region={region}
+  - --project={project_id}
+  - --no-traffic
+
+requires_confirmation: true
