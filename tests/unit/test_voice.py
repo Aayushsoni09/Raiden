@@ -2,8 +2,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.voice import safe_print
 from src.voice.loop import run_once
 from src.voice.tts.speak import speak
+
+
+def test_safe_print_survives_unencodable_characters(capsys):
+    # Simulates a Windows console's cp1252 stdout, which can't encode this text.
+    safe_print("emoji \U0001F600 and curly ‘quotes’", encoding="cp1252")
+    captured = capsys.readouterr()
+    assert "emoji" in captured.out
 
 
 def test_speak_requires_piper_on_path():

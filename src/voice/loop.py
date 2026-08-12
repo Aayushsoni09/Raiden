@@ -18,6 +18,7 @@ from src.resolver.resolver import (
     ProjectNotFoundError,
     resolve_project,
 )
+from src.voice import safe_print
 from src.voice.stt.transcribe import record_from_mic, transcribe
 from src.voice.tts.speak import speak
 
@@ -28,7 +29,7 @@ def run_once(catalog_dir="catalog", audit_log_path="audit/session.jsonl", tts_mo
     speak("What's broken?", tts_model)
     wav_path = record_from_mic(seconds=6)
     report = transcribe(wav_path)
-    print(f"You said: {report}")
+    safe_print(f"You said: {report}")
 
     try:
         entry = resolve_project(report, catalog_dir)

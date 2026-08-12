@@ -12,6 +12,8 @@ import argparse
 import sys
 import tempfile
 
+from src.voice import safe_print
+
 
 def record_from_mic(seconds=6, samplerate=16000):
     try:
@@ -59,7 +61,7 @@ def main():
         parser.error("Pass --mic or --file")
         return
 
-    print(transcribe(path, model_size=args.model))
+    safe_print(transcribe(path, model_size=args.model))
 
 
 if __name__ == "__main__":
