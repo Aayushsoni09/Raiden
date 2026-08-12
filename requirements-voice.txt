@@ -1,0 +1,11 @@
+# Optional voice extras — not needed for the text-mode investigator loop.
+# Install with: pip install -r requirements.txt -r requirements-voice.txt
+#
+# Also requires, on PATH (not pip-installable):
+#   - `ffmpeg` — openai-whisper shells out to it to decode audio.
+#   - `piper` CLI + a downloaded voice model (.onnx + .onnx.json):
+#     https://github.com/rhasspy/piper
+
+openai-whisper>=20231117
+sounddevice>=0.4
+soundfile>=0.12

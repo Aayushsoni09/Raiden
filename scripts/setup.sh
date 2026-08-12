@@ -13,9 +13,29 @@ ollama pull llama3.1:8b
 echo "==> Installing Python dependencies"
 python3 -m pip install -r requirements.txt
 
-echo "==> Checking GCP auth (Phase 1: GCP only)"
+echo "==> Checking GCP auth"
 gcloud auth application-default print-access-token >/dev/null 2>&1 \
   && echo "GCP ADC OK" \
   || echo "WARNING: gcloud ADC not configured. Run: gcloud auth application-default login"
 
+echo "==> Checking AWS auth"
+aws sts get-caller-identity >/dev/null 2>&1 \
+  && echo "AWS credentials OK" \
+  || echo "WARNING: AWS credentials not configured. Run: aws configure"
+
+if [ "${1:-}" = "--voice" ]; then
+  echo "==> Installing voice extras"
+  python3 -m pip install -r requirements-voice.txt
+
+  command -v ffmpeg >/dev/null 2>&1 \
+    && echo "ffmpeg OK" \
+    || echo "WARNING: ffmpeg not found on PATH (required by openai-whisper to decode audio)."
+
+  command -v piper >/dev/null 2>&1 \
+    && echo "piper OK" \
+    || echo "WARNING: piper CLI not found on PATH. Install with: pip install piper-tts, then"
+  echo "         download a voice model (.onnx + .onnx.json) from https://github.com/rhasspy/piper"
+fi
+
 echo "==> Setup complete. Try: python -m src.investigator (after adding a catalog entry)"
+echo "    For voice support, re-run: ./scripts/setup.sh --voice"

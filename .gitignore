@@ -28,3 +28,6 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# Downloaded voice models — large binaries, fetch per README instructions
+.voice-models/
