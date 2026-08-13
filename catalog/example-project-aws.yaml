@@ -1,5 +1,5 @@
 id: example-project-aws
-aliases: [example-project-aws, "example project aws"]
+aliases: [example-project-aws, "example project aws", aws, "aws project", "the aws service"]
 
 clouds:
   - provider: aws
