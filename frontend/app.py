@@ -1,15 +1,21 @@
-"""Local chat UI for testing Raiden's investigator + executor without voice.
+"""Local chat UI for testing Raiden's investigator + executor, with voice.
 
 Run with:
     pip install -r requirements.txt -r requirements-frontend.txt
     streamlit run frontend/app.py
 
+Voice input uses st.chat_input's built-in microphone recorder (no
+sounddevice needed) and transcribes with local Whisper. Voice replies use
+local Piper TTS, played back in-browser via st.audio — nothing shells out
+to an OS-level audio player here.
+
 This is a testing/demo surface only — it calls the exact same read-only
-investigator and confirm-gated executor used by the CLI/voice paths. It
-never runs a runbook without an explicit "Confirm & run" click.
+investigator and confirm-gated executor used by the CLI/voice-loop paths.
+It never runs a runbook without an explicit "Confirm & run" click.
 """
 
 import sys
+import tempfile
 from pathlib import Path
 
 import streamlit as st
@@ -25,6 +31,8 @@ from src.resolver.resolver import (
     load_catalog,
     resolve_project,
 )
+from src.voice.stt.transcribe import transcribe as stt_transcribe
+from src.voice.tts.speak import synthesize as tts_synthesize
 
 st.set_page_config(page_title="Raiden", page_icon="⚡", layout="wide")
 
@@ -40,14 +48,31 @@ def _load_runbook_def(runbook_id, runbooks_dir):
         return yaml.safe_load(f)
 
 
+def _transcribe_audio(uploaded_audio, whisper_model):
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(uploaded_audio.getvalue())
+        wav_path = tmp.name
+    return stt_transcribe(wav_path, model_size=whisper_model)
+
+
 with st.sidebar:
     st.title("⚡ Raiden")
-    st.caption("Local-first DevOps investigator — text-mode test UI")
+    st.caption("Local-first DevOps investigator — chat test UI")
 
     catalog_dir = st.text_input("Catalog directory", value="catalog")
     model = st.text_input("Ollama model", value="llama3.1:8b")
     audit_log_path = st.text_input("Audit log path", value="audit/session.jsonl")
     evidence_db_path = st.text_input("Evidence DB path", value="audit/evidence.sqlite3")
+
+    st.divider()
+    st.subheader("Voice")
+    whisper_model = st.selectbox("Whisper model (speech-to-text)", ["base", "small", "medium"], index=0)
+    voice_replies = st.checkbox("Speak replies out loud (Piper TTS)")
+    tts_model_path = st.text_input(
+        "Piper voice model (.onnx)",
+        value=".voice-models/en_US-lessac-medium.onnx",
+        disabled=not voice_replies,
+    )
 
     st.divider()
     st.subheader("Catalog entries")
@@ -125,28 +150,56 @@ st.header("Investigate")
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        if msg.get("audio"):
+            st.audio(msg["audio"], format="audio/wav")
 
-report = st.chat_input("What's broken?")
-if report:
-    st.session_state.messages.append({"role": "user", "content": report})
-    with st.chat_message("user"):
-        st.markdown(report)
+submission = st.chat_input("What's broken?", accept_audio=True, audio_sample_rate=16000)
 
-    with st.chat_message("assistant"):
-        try:
-            entry = resolve_project(report, catalog_dir)
-        except (ProjectNotFoundError, AmbiguousProjectError) as e:
-            reply = str(e)
-            st.markdown(reply)
-        else:
-            with st.spinner(f"Investigating {entry['id']} with {model}... (can take a while on CPU)"):
-                reply = investigate(
-                    report,
-                    entry,
-                    audit_log_path=audit_log_path,
-                    evidence_db_path=evidence_db_path,
-                    model=model,
-                )
-            st.markdown(f"**Project:** `{entry['id']}`\n\n{reply}")
+if submission:
+    report = submission.text
+    heard_audio_bytes = None
 
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+    if submission.audio is not None:
+        heard_audio_bytes = submission.audio.getvalue()
+        with st.spinner("Transcribing..."):
+            report = _transcribe_audio(submission.audio, whisper_model)
+
+    if not report:
+        st.warning("No speech or text detected in that submission — try again.")
+    else:
+        user_entry = {"role": "user", "content": report}
+        if heard_audio_bytes:
+            user_entry["audio"] = heard_audio_bytes
+        st.session_state.messages.append(user_entry)
+
+        with st.chat_message("user"):
+            st.markdown(report)
+            if heard_audio_bytes:
+                st.audio(heard_audio_bytes, format="audio/wav")
+
+        with st.chat_message("assistant"):
+            try:
+                entry = resolve_project(report, catalog_dir)
+            except (ProjectNotFoundError, AmbiguousProjectError) as e:
+                reply = str(e)
+                st.markdown(reply)
+            else:
+                with st.spinner(f"Investigating {entry['id']} with {model}... (can take a while on CPU)"):
+                    reply = investigate(
+                        report,
+                        entry,
+                        audit_log_path=audit_log_path,
+                        evidence_db_path=evidence_db_path,
+                        model=model,
+                    )
+                st.markdown(f"**Project:** `{entry['id']}`\n\n{reply}")
+
+            if voice_replies:
+                try:
+                    with st.spinner("Synthesizing speech..."):
+                        reply_audio = tts_synthesize(reply, tts_model_path)
+                    st.audio(reply_audio, format="audio/wav", autoplay=True)
+                except (SystemExit, RuntimeError, FileNotFoundError) as e:
+                    st.warning(f"Couldn't synthesize speech: {e}")
+
+        st.session_state.messages.append({"role": "assistant", "content": reply})

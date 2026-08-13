@@ -14,17 +14,15 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 from scripts._shell import resolve
 
 
-def speak(text, model_path):
-    """Synthesize `text` with Piper and play it back.
-
-    Windows has no aplay/afplay, so we always render to a temp WAV file
-    and play it — simpler and more portable than piping raw PCM to a
-    platform-specific player.
-    """
+def synthesize(text, model_path):
+    """Synthesize `text` with Piper and return raw WAV bytes, without
+    playing anything. Use this to embed audio in a UI (e.g. st.audio)
+    instead of playing through the local OS."""
     if shutil.which("piper") is None:
         raise SystemExit(
             "piper CLI not found on PATH. Install with: pip install piper-tts, "
@@ -42,6 +40,20 @@ def speak(text, model_path):
     if proc.returncode != 0:
         raise RuntimeError(f"piper failed: {proc.stderr.decode('utf-8', errors='replace')}")
 
+    return Path(wav_path).read_bytes()
+
+
+def speak(text, model_path):
+    """Synthesize `text` with Piper and play it back through the local OS.
+
+    Windows has no aplay/afplay, so we always render to a temp WAV file
+    and play it — simpler and more portable than piping raw PCM to a
+    platform-specific player.
+    """
+    wav_bytes = synthesize(text, model_path)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(wav_bytes)
+        wav_path = tmp.name
     _play(wav_path)
 
 
