@@ -87,3 +87,14 @@ properties:
       contractually agreed their logs/telemetry may be sent to the
       configured LLM (even a local one — this is about data handling
       policy, not just network egress).
+
+  free_form_actions_allowed:
+    type: boolean
+    default: false
+    description: >
+      MUST default to false. When true, the LLM may draft arbitrary
+      aws/gcloud/kubectl/gh commands (not just predefined runbooks) for
+      this project, subject to human confirmation before anything runs.
+      Hardcoded-forbidden verbs (delete/terminate/destroy/remove/
+      deregister/detach/revoke) and any `iam` subcommand are blocked
+      regardless of this setting — see docs/THREAT_MODEL.md.

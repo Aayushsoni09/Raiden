@@ -14,6 +14,7 @@ investigator and confirm-gated executor used by the CLI/voice-loop paths.
 It never runs a runbook without an explicit "Confirm & run" click.
 """
 
+import shlex
 import sys
 import tempfile
 from pathlib import Path
@@ -25,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.executor.executor import RunbookExecutor, RunbookNotAllowedError
 from src.investigator import investigate
+from src.investigator.action_proposer import ActionProposalError, propose_action
 from src.resolver.resolver import (
     AmbiguousProjectError,
     ProjectNotFoundError,
@@ -40,6 +42,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "pending_runbook" not in st.session_state:
     st.session_state.pending_runbook = None
+if "pending_action" not in st.session_state:
+    st.session_state.pending_action = None
 
 
 def _load_runbook_def(runbook_id, runbooks_dir):
@@ -145,7 +149,17 @@ with st.sidebar:
             st.rerun()
 
 
-st.header("Investigate")
+mode = st.segmented_control(
+    "Mode", ["Investigate an issue", "Take an action"], default="Investigate an issue"
+)
+act_mode = mode == "Take an action"
+
+st.header("Act" if act_mode else "Investigate")
+if act_mode:
+    st.caption(
+        "The model drafts an aws/gcloud/kubectl/gh command from your request. "
+        "Nothing runs until you review (and can edit) it below and explicitly confirm."
+    )
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -153,7 +167,50 @@ for msg in st.session_state.messages:
         if msg.get("audio"):
             st.audio(msg["audio"], format="audio/wav")
 
-submission = st.chat_input("What's broken?", accept_audio=True, audio_sample_rate=16000)
+
+def render_pending_action_card():
+    """Renders the review/edit/confirm card for the current pending action,
+    if any. Called once per run, after any new submission has already shown
+    its own chat bubble (which includes the project + explanation) — this
+    card only needs the editable command and the confirm/cancel controls."""
+    if not st.session_state.pending_action:
+        return
+    pending = st.session_state.pending_action
+    with st.chat_message("assistant"):
+        st.markdown(f"Proposed command for `{pending['entry_id']}`:")
+        edited = st.text_area(
+            "Review and edit the command before running it (a local model can't look up "
+            "real values like AMI/VPC ids — verify these yourself)",
+            value=" ".join(pending["command"]),
+            key="pending_action_edit",
+        )
+        confirm_col, cancel_col = st.columns(2)
+        with confirm_col:
+            if st.button("⚠️ Confirm & run", type="primary", key="confirm_action"):
+                try:
+                    edited_command = shlex.split(edited)
+                    entry = next(e for e in entries if e["id"] == pending["entry_id"])
+                    executor = RunbookExecutor(runbooks_dir="runbooks", audit_log_path=audit_log_path)
+                    validated_command = executor.validate_free_form(edited_command, entry)
+                    result = executor.execute(validated_command, confirmed=True)
+                    if result.returncode == 0:
+                        st.success(f"Exit 0\n\n{result.stdout}")
+                    else:
+                        st.error(f"Exit {result.returncode}\n\n{result.stderr}")
+                except (RunbookNotAllowedError, ValueError) as e:
+                    st.error(str(e))
+                st.session_state.pending_action = None
+        with cancel_col:
+            if st.button("Cancel", key="cancel_action"):
+                st.session_state.pending_action = None
+                st.rerun()
+
+
+submission = st.chat_input(
+    "What do you want to do?" if act_mode else "What's broken?",
+    accept_audio=True,
+    audio_sample_rate=16000,
+)
 
 if submission:
     report = submission.text
@@ -178,11 +235,42 @@ if submission:
                 st.audio(heard_audio_bytes, format="audio/wav")
 
         with st.chat_message("assistant"):
+            entry = None
             try:
                 entry = resolve_project(report, catalog_dir)
             except (ProjectNotFoundError, AmbiguousProjectError) as e:
                 reply = str(e)
                 st.markdown(reply)
+
+            if entry is None:
+                pass
+            elif act_mode:
+                if not entry.get("free_form_actions_allowed", False):
+                    reply = (
+                        f"Free-form actions aren't enabled for `{entry['id']}` — "
+                        "set `free_form_actions_allowed: true` in its catalog entry first."
+                    )
+                    st.markdown(reply)
+                else:
+                    with st.spinner(f"Drafting a command for {entry['id']} with {model}..."):
+                        try:
+                            command, explanation = propose_action(report, entry, model=model)
+                        except ActionProposalError as e:
+                            command, explanation = [], f"Couldn't draft a command: {e}"
+
+                    if command:
+                        st.session_state.pending_action = {
+                            "entry_id": entry["id"],
+                            "command": command,
+                            "explanation": explanation,
+                        }
+                        reply = (
+                            f"**Project:** `{entry['id']}`\n\n{explanation}\n\n"
+                            "Review the proposed command below before confirming."
+                        )
+                    else:
+                        reply = f"**Project:** `{entry['id']}`\n\n{explanation}"
+                    st.markdown(reply)
             else:
                 with st.spinner(f"Investigating {entry['id']} with {model}... (can take a while on CPU)"):
                     reply = investigate(
@@ -203,3 +291,5 @@ if submission:
                     st.warning(f"Couldn't synthesize speech: {e}")
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
+
+render_pending_action_card()

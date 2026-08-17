@@ -17,3 +17,4 @@ runbooks_allowed: [restart_ecs_service]
 runbooks_forbidden: [any_delete, iam_modify]
 
 llm_egress_approved: false
+free_form_actions_allowed: true

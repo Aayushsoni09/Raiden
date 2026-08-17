@@ -101,3 +101,46 @@ def test_propose_allowed_ecs_runbook(tmp_path):
         "--region", "ap-south-1",
     ]
     assert requires_confirmation is True
+
+
+def test_validate_free_form_rejects_when_project_not_opted_in(tmp_path):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": False}
+    with pytest.raises(RunbookNotAllowedError):
+        executor.validate_free_form(["aws", "ec2", "describe-instances"], entry)
+
+
+def test_validate_free_form_accepts_allowed_read_command(tmp_path):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": True}
+    command = executor.validate_free_form(["aws", "ec2", "run-instances", "--region", "ap-south-1"], entry)
+    assert command == ["aws", "ec2", "run-instances", "--region", "ap-south-1"]
+
+
+def test_validate_free_form_rejects_disallowed_binary(tmp_path):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": True}
+    with pytest.raises(RunbookNotAllowedError):
+        executor.validate_free_form(["bash", "-c", "echo hi"], entry)
+
+
+def test_validate_free_form_rejects_iam_subcommand(tmp_path):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": True}
+    with pytest.raises(RunbookNotAllowedError):
+        executor.validate_free_form(["aws", "iam", "create-user", "--user-name", "x"], entry)
+
+
+@pytest.mark.parametrize("verb", ["delete", "terminate", "destroy", "remove", "deregister", "detach", "revoke"])
+def test_validate_free_form_rejects_destructive_verbs(tmp_path, verb):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": True}
+    with pytest.raises(RunbookNotAllowedError):
+        executor.validate_free_form(["aws", "ec2", f"{verb}-instances", "--instance-ids", "i-123"], entry)
+
+
+def test_validate_free_form_rejects_empty_command(tmp_path):
+    executor = make_executor(tmp_path)
+    entry = {**CATALOG_ENTRY, "free_form_actions_allowed": True}
+    with pytest.raises(ValueError):
+        executor.validate_free_form([], entry)

@@ -10,8 +10,14 @@ Thanks for contributing! Short version, see below for detail.
 - New runbooks → YAML only, under `runbooks/`. No shell scripts that take
   free-form input. Run `python scripts/lint_runbooks.py runbooks/` locally
   before opening a PR.
+- Free-form action changes (`src/investigator/action_proposer.py`,
+  `RunbookExecutor.validate_free_form`) need extra scrutiny — this is the
+  one path where the LLM authors the actual command, not just fills in a
+  human-reviewed template. Never weaken the binary allowlist or the
+  hardcoded-forbidden verb/IAM checks; add tests for any change here.
 - Update `docs/THREAT_MODEL.md` whenever your PR adds a new capability
-  that touches a write path (`src/executor/`, `runbooks/`).
+  that touches a write path (`src/executor/`, `runbooks/`,
+  `action_proposer.py`).
 - Tests required for any change under `src/executor/`.
 
 ## Local dev setup

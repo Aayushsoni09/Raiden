@@ -232,7 +232,7 @@ python src/voice/loop.py
 
 A few things that are non-negotiable:
 
-**Raiden never holds a write credential in the same process as the LLM.** The investigator is read-only. The executor is a separate process that accepts only validated, parameterised runbook intents — not raw shell commands from the model.
+**Raiden never holds a write credential in the same process as the LLM.** The investigator is read-only. By default, the executor accepts only validated, parameterised runbook intents. A project can opt in to a broader "free-form action" mode (`free_form_actions_allowed: true`) where the LLM drafts an `aws`/`gcloud`/`kubectl`/`gh` command from a request — this is off by default, requires human review (and lets you edit the command) before confirming, and hardcoded-forbidden verbs/IAM checks still apply regardless. See `docs/THREAT_MODEL.md` for the full trust-boundary writeup.
 
 **The catalog has a `llm_egress_approved` field.** If it's `false`, Raiden refuses to send that project's telemetry to any model provider. This defaults to `false` on every new catalog entry. You flip it only after your client has contractually agreed that their logs can leave their environment.
 
