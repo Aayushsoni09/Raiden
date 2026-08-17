@@ -17,7 +17,7 @@ import re
 
 from langchain_ollama import ChatOllama
 
-DEFAULT_MODEL = "llama3.1:8b"
+DEFAULT_MODEL = "qwen2.5:7b"
 
 ACTION_PROMPT = """You are Raiden, a DevOps assistant that drafts a single CLI command \
 to fulfill an infrastructure request. You only draft commands for a human to review — \

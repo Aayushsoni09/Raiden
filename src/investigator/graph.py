@@ -1,6 +1,10 @@
 """LangGraph investigator loop: read-only evidence gathering -> ranked hypotheses.
 
-Uses a local Ollama model (e.g. llama3.1:8b or qwen2.5:7b) via langchain-ollama.
+Uses a local Ollama model via langchain-ollama. Default is qwen2.5:7b —
+picked after real-world comparison against llama3.1:8b and nemotron-mini:4b
+showed it alone reliably followed the health-summary calibration (see
+summarize_evidence below) and correctly included region flags that
+llama3.1:8b silently dropped when drafting free-form commands.
 The investigator never calls write/mutating CLI commands.
 """
 
@@ -14,7 +18,7 @@ from src.audit import AuditLog
 from src.evidence import EvidenceStore
 from src.investigator import tools
 
-DEFAULT_MODEL = "llama3.1:8b"
+DEFAULT_MODEL = "qwen2.5:7b"
 
 HYPOTHESIS_PROMPT = """You are Raiden's investigator. You only read evidence; you never propose \
 destructive or write actions directly to be run automatically.

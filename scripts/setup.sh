@@ -7,8 +7,8 @@ if ! command -v ollama >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> Pulling local model (llama3.1:8b)"
-ollama pull llama3.1:8b
+echo "==> Pulling local model (qwen2.5:7b)"
+ollama pull qwen2.5:7b
 
 echo "==> Installing Python dependencies"
 python3 -m pip install -r requirements.txt

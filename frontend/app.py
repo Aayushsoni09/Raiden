@@ -64,7 +64,7 @@ with st.sidebar:
     st.caption("Local-first DevOps investigator — chat test UI")
 
     catalog_dir = st.text_input("Catalog directory", value="catalog")
-    model = st.text_input("Ollama model", value="llama3.1:8b")
+    model = st.text_input("Ollama model", value="qwen2.5:7b")
     audit_log_path = st.text_input("Audit log path", value="audit/session.jsonl")
     evidence_db_path = st.text_input("Evidence DB path", value="audit/evidence.sqlite3")
 
