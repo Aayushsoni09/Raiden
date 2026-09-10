@@ -21,7 +21,15 @@ action proposer).
 3. **Catalog** — git-backed, human-reviewed (CODEOWNERS on `_schema.yaml`).
    Determines which runbooks — and whether free-form actions at all — are
    reachable per project.
-4. **Audit log** — append-only local JSONL. Not a security control by
+4. **Voice daemon (`src/daemon/`)** — always-listening wake-word trigger
+   over an offline speech recognizer (Vosk), feeding into the same
+   investigator/action-proposer paths above. It never executes a
+   free-form action itself: on an action-shaped request it only drafts
+   and speaks back a proposed command, explicitly telling the user to
+   use the frontend's review-and-confirm flow — a misheard "yes"/
+   "confirm" over voice is not a reliable enough signal to run something
+   that mutates real infrastructure.
+5. **Audit log** — append-only local JSONL. Not a security control by
    itself (local files can be deleted), but supports post-incident review
    and is required reading before disputing "what did Raiden do".
 

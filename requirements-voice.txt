@@ -5,7 +5,13 @@
 #   - `ffmpeg` — openai-whisper shells out to it to decode audio.
 #   - `piper` CLI + a downloaded voice model (.onnx + .onnx.json):
 #     https://github.com/rhasspy/piper
+#
+# The background wake-word daemon (src/daemon/) additionally needs a Vosk
+# model directory (not pip-installable) — download and unzip into
+# .voice-models/, e.g.:
+#   https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
 
 openai-whisper>=20231117
 sounddevice>=0.4
 soundfile>=0.12
+vosk>=0.3.45
